@@ -9,7 +9,7 @@ namespace basic_api.Mappers
 {
     public static class StockMapper
     {
-        public static StockDto ToStockDto(this Stock stockModel)
+        public static StockDto ToStockDto(this Car stockModel)
         {
             return new StockDto
             {
@@ -24,9 +24,9 @@ namespace basic_api.Mappers
             };
         }
 
-        public static Stock ToStockFromCreateDTO(this CreateStockRequestDto stockDto)
+        public static Car ToStockFromCreateDTO(this CreateStockRequestDto stockDto)
         {
-            return new Stock
+            return new Car
             {
                 Symbol = stockDto.Symbol,
                 CompanyName = stockDto.CompanyName,

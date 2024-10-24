@@ -12,7 +12,7 @@ namespace basic_api.Data
         public ApplicationDBContext(DbContextOptions<ApplicationDBContext> options)
         : base(options) { }
 
-        public DbSet<Stock> Stocks { get; set; }
+        public DbSet<Car> Stocks { get; set; }
         public DbSet<Comment> Comments { get; set; }
 
     }

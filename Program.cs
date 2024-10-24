@@ -27,8 +27,8 @@ builder.Services.AddDbContext<ApplicationDBContext>(options =>
     options.UseNpgsql(connectionString);
 });
 
-builder.Services.AddScoped<IStockRepository, StockRepository>();
-builder.Services.AddScoped<ICommentRepository, CommentRepository>();
+builder.Services.AddScoped<IStockRepository, CarTypeRepository>();
+builder.Services.AddScoped<ICommentRepository, CarRepository>();
 
 var app = builder.Build();
 
