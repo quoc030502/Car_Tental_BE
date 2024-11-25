@@ -9,16 +9,17 @@ using basic_api.Middlewares;
 using basic_api.Constants;
 using Net.payOS.Types;
 using System.Management;
+using Microsoft.VisualBasic;
 
 
 namespace basic_api.Controllers
 {
     [Route("api/admins/orders")]
     [ApiController]
-    public class AdminOrderController(IOrderInterface orderRepo, IConfiguration configuration, Service service) : ControllerBase
+    public class AdminOrderController(IOrderInterface orderRepo, IUserInterface userRepo, IConfiguration configuration, Service service) : ControllerBase
     {
         private readonly IOrderInterface _orderRepo = orderRepo;
-
+        private readonly IUserInterface _userRepo = userRepo;
         private readonly IConfiguration _configuration = configuration;
         private readonly Service _service = service;
 
@@ -32,12 +33,51 @@ namespace basic_api.Controllers
                 return NotFound(ErrorMessages.OrderNotFound);
 
             order.Status = OrderStatus.PendingConfirm;
+            order.Contract = req.Contract ?? "";
+
             foreach (var image in req.Images)
             {
                 order.Images.Add(new Image
                 {
-                    ImageURL = image
+                    ImageURL = image,
+                    Type = OrderImageType.Confirm
                 });
+            }
+
+            await _orderRepo.Update(null, order);
+
+            return Ok(order);
+        }
+
+        [HttpPut("{id}/confirm-return")]
+        [IsAdmin]
+        public async Task<IActionResult> ConfirmReturn([FromRoute] int id, [FromBody] ConfirmReturnRequest req)
+        {
+            var order = await _orderRepo.GetOrderById(id);
+
+            if (order == null)
+                return NotFound(ErrorMessages.OrderNotFound);
+
+            if (order.Status != OrderStatus.PendingReturn)
+                return BadRequest(ErrorMessages.OrderNotValid);
+
+            order.Status = OrderStatus.Returning;
+
+
+
+            if (req.PunishmentAmount != null)
+            {
+                var user = await _userRepo.GetUserById(order.UserID);
+                if (user == null)
+                    return NotFound(ErrorMessages.UserNotFound);
+                user.IsLock = true;
+                order.User = user;
+                order.Punishment = new Punishment
+                {
+                    IsPay = false,
+                    Amount = (int)req.PunishmentAmount,
+                    Reason = req.Reason ?? ""
+                };
             }
 
             await _orderRepo.Update(null, order);
@@ -57,10 +97,11 @@ namespace basic_api.Controllers
 
     [Route("/api/users/orders")]
     [ApiController]
-    public class UserOrderController(IOrderInterface orderRepo, IUserInterface userRepo, ICarInterface carRepo, IPaymentInterface paymentRepo, IPayOsInterface payOs, ApplicationDBContext context, Service service) : ControllerBase
+    public class UserOrderController(IOrderInterface orderRepo, IUserInterface userRepo, IPunishmentInterface punishmentRepo, ICarInterface carRepo, IPaymentInterface paymentRepo, IPayOsInterface payOs, ApplicationDBContext context, Service service) : ControllerBase
     {
         private readonly IOrderInterface _orderRepo = orderRepo;
         private readonly IUserInterface _userRepo = userRepo;
+        private readonly IPunishmentInterface _punishmentRepo = punishmentRepo;
         private readonly ICarInterface _carRepo = carRepo;
         private readonly IPaymentInterface _paymentRepo = paymentRepo;
         private readonly IPayOsInterface _payOS = payOs;
@@ -70,7 +111,6 @@ namespace basic_api.Controllers
 
         [HttpPost()]
         [IsUser]
-        [IsActive]
         public async Task<IActionResult> Create([FromBody] CreateOrderRequest req)
         {
             var user = await _userRepo.GetUserById(int.Parse(HttpContext.Items["ID"].ToString()));
@@ -215,7 +255,7 @@ namespace basic_api.Controllers
                 {
                     await _orderRepo.Update(_context, order);
 
-                    payment = await _payOS.CreatePayment(orderCode, car.Name, order.Deposit, PaymentType.CarDeposit);
+                    payment = await _payOS.CreatePayment(orderCode, car.Name, order.Deposit, 0, PaymentType.CarDeposit);
 
                     await _paymentRepo.Create(_context, new Payment
                     {
@@ -238,6 +278,8 @@ namespace basic_api.Controllers
                     Console.WriteLine($"Transaction failed: {ex.Message}");
                 }
             }
+            Console.WriteLine(payment);
+            Console.WriteLine("------");
             return Ok(new ConfirmOrderResponse
             {
                 CheckoutURL = payment.checkoutUrl,
@@ -254,10 +296,126 @@ namespace basic_api.Controllers
 
             order.Status = OrderStatus.Canceled;
 
+            var user = await _userRepo.GetUserById(order.UserID);
+            user.CarRented -= 1;
+
             await _orderRepo.Update(_context, order);
+            await _userRepo.Update(_context, user);
 
             return Ok();
         }
+
+        [HttpPut("{id}/return")]
+        [IsUser]
+        public async Task<IActionResult> Return([FromRoute] int id, [FromBody] UpdateOrderRequest req)
+        {
+            var order = await _orderRepo.GetOrderById(id);
+
+            if (order == null)
+                return NotFound(ErrorMessages.OrderNotFound);
+
+            if (order.Status != OrderStatus.OrderSuccess)
+                return BadRequest(ErrorMessages.OrderNotValid);
+
+            order.Status = OrderStatus.PendingReturn;
+            foreach (var image in req.Images)
+            {
+                order.Images.Add(new Image
+                {
+                    ImageURL = image,
+                    Type = OrderImageType.Return
+                });
+            }
+
+            await _orderRepo.Update(null, order);
+
+            return Ok(order);
+        }
+
+        [HttpPut("{id}/pay")]
+        [IsUser]
+        public async Task<IActionResult> Pay([FromRoute] int id)
+        {
+            var order = await _orderRepo.GetOrderById(id);
+
+            if (order == null)
+                return NotFound(ErrorMessages.OrderNotFound);
+
+            if (order.Status != OrderStatus.Returning)
+                return BadRequest(ErrorMessages.OrderNotValid);
+
+            var car = await _carRepo.GetCarById(order.CarOrders.FirstOrDefault().CarID);
+            if (car == null)
+                return NotFound(ErrorMessages.CarNotFound);
+
+            var orderCode = _service.NewOrderCode();
+
+            var punishment = await _punishmentRepo.TakePunishment(p => p.OrderID == order.Id);
+
+            int pnm = 0;
+
+            if (punishment != null)
+            {
+                pnm = punishment.Amount;
+            }
+
+            var payment = await _payOS.CreatePayment(orderCode, car.Name, order.Cost - order.Deposit, pnm, PaymentType.TotalCost);
+
+
+            await _paymentRepo.Create(_context, new Payment
+            {
+                OrderCode = orderCode,
+                OrderID = order.Id,
+                Amount = order.Cost - order.Deposit + pnm,
+                Type = PaymentType.TotalCost,
+                Bin = payment.bin,
+                Currency = payment.currency,
+                Status = payment.status,
+                CheckoutURL = payment.checkoutUrl,
+                QRCode = payment.qrCode
+            });
+
+            return Ok(new ConfirmOrderResponse
+            {
+                CheckoutURL = payment.checkoutUrl,
+                OrderCode = payment.orderCode
+            });
+        }
+
+        //   [HttpPut("{id}/punishment/{punishmentId}/pay")]
+        //   [IsUser]
+        //   public async Task<IActionResult> PayPunishment([FromRoute] int id, int punishmentId)
+        //   {
+        //     var punishment = await _punishmentRepo.TakePunishment(p => p.Id == punishmentId);
+        //     if (punishment == null)
+        //       return BadRequest(ErrorMessages.OrderNotValid);
+
+        //     if (punishment.IsPay)
+        //       return BadRequest(ErrorMessages.PunishmentNotValid);
+
+        //     var orderCode = _service.NewOrderCode();
+
+        //     var payment = await _payOS.CreatePayment(orderCode, "Punishment", punishment.Amount, PaymentType.Fines);
+
+        //     await _paymentRepo.Create(_context, new Payment
+        //     {
+        //       OrderCode = orderCode,
+        //       OrderID = punishment.Order.Id,
+        //       Amount = punishment.Amount,
+        //       Type = PaymentType.Fines,
+        //       Bin = payment.bin,
+        //       Currency = payment.currency,
+        //       Status = payment.status,
+        //       CheckoutURL = payment.checkoutUrl,
+        //       QRCode = payment.qrCode
+        //     });
+
+        //     return Ok(new ConfirmOrderResponse
+        //     {
+        //       CheckoutURL = payment.checkoutUrl,
+        //       OrderCode = payment.orderCode
+        //     });
+        //   }
     }
 
 
