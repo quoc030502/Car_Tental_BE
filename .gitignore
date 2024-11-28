@@ -232,3 +232,4 @@ _Pvt_Extensions
 
 # FAKE - F# Make
 .fake/
+/Migrations/20241019050435_UpdateTable6.cs
