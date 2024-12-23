@@ -14,16 +14,24 @@ namespace basic_api.Services
         private readonly string _returnURL = Environment.GetEnvironmentVariable("RETURN_URL") ?? "";
 
 
-        public async Task<CreatePaymentResult> CreatePayment(long orderCode, string carName, double amount, string type)
+        public async Task<CreatePaymentResult> CreatePayment(long orderCode, string carName, double amount, int punishment, string type)
         {
             PayOS payOS = new(_clientID, _apiKey, _checksumKey);
 
             int intAmount = (int)amount;
+            List<ItemData> items = [new(carName, 1, intAmount)];
 
-            ItemData item = new(carName, 1, intAmount);
 
-            PaymentData paymentData = new(orderCode, (int)Math.Round(amount, 0), type,
-                 [item], _cancelURL, _returnURL);
+            if (punishment != 0)
+            {
+                items.Add(new ItemData("Punishment", 1, punishment));
+            }
+
+            Console.WriteLine("-----------------------------ơ");
+            Console.WriteLine((int)Math.Round(amount, 0) + punishment);
+
+            PaymentData paymentData = new(orderCode, (int)Math.Round(amount, 0) + punishment, type,
+                 items, _cancelURL, _returnURL);
 
             return await payOS.createPaymentLink(paymentData);
         }
