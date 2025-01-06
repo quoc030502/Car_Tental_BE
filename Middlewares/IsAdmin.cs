@@ -7,39 +7,39 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace basic_api.Middlewares
 {
-    [AttributeUsage(AttributeTargets.All)]
-    public class IsAdminAttribute : Attribute, IAsyncActionFilter
+  [AttributeUsage(AttributeTargets.All)]
+  public class IsAdminAttribute : Attribute, IAsyncActionFilter
+  {
+    private readonly string? _secretKey = Environment.GetEnvironmentVariable("SECRET_KEY");
+
+    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        private readonly string? _secretKey = Environment.GetEnvironmentVariable("SECRET_KEY");
+      if (_secretKey == null)
+        return;
 
-        public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+      var authorizationHeader = context.HttpContext.Request.Headers.Authorization.ToString();
+      var principal = Jwt.ValidateToken(authorizationHeader, _secretKey);
+
+      if (principal == null)
+      {
+        context.Result = new JsonResult(ErrorMessages.TokenIsInvalid)
         {
-            if (_secretKey == null)
-                return;
+          StatusCode = StatusCodes.Status401Unauthorized
+        };
+        return;
+      }
 
-            var authorizationHeader = context.HttpContext.Request.Headers.Authorization.ToString();
-            var principal = Jwt.ValidateToken(authorizationHeader, _secretKey);
+      var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+      if (roleClaim != Roles.Admin)
+      {
+        context.Result = new JsonResult(ErrorMessages.NotAuthorizedToAccess)
+        {
+          StatusCode = StatusCodes.Status403Forbidden
+        };
+        return;
+      }
 
-            if (principal == null)
-            {
-                context.Result = new JsonResult(ErrorMessages.TokenIsInvalid)
-                {
-                    StatusCode = StatusCodes.Status401Unauthorized
-                };
-                return;
-            }
-
-            var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-            if (roleClaim != Roles.Admin)
-            {
-                context.Result = new JsonResult(ErrorMessages.NotAuthorizedToAccess)
-                {
-                    StatusCode = StatusCodes.Status403Forbidden
-                };
-                return;
-            }
-
-            await next();
-        }
+      await next();
     }
+  }
 }

@@ -1,12 +1,4 @@
-<<<<<<< HEAD
-﻿namespace basic_api.Middlewares
-{
-    public class IsUser
-    {
-    }
-}
-=======
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using basic_api.Constants;
 using basic_api.Data;
 using basic_api.Services;
@@ -53,4 +45,3 @@ namespace basic_api.Middlewares
         }
     }
 }
->>>>>>> 90ce7f10766621f0afaee5aee687c9b45c201bb1
