@@ -119,3 +119,28 @@ namespace basic_api.Controllers
             });
         }
     }
+
+    [Route("api/guess/cars")]
+    [ApiController]
+    public class GuessCarController(ICarInterface carRepo) : ControllerBase
+    {
+        private readonly ICarInterface _carRepo = carRepo;
+
+        [HttpGet()]
+        public async Task<IActionResult> GuessGetList([FromQuery] GuessGetListCarRequest req)
+        {
+            var cars = await _carRepo.GuessGetAll(req);
+            return Ok(cars);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetDetail([FromRoute] int id)
+        {
+            var car = await _carRepo.GetCarById(id);
+
+            if (car == null) return NotFound(ErrorMessages.CarNotFound);
+
+            return Ok(car);
+        }
+    }
+}

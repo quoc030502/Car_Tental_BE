@@ -78,3 +78,41 @@ namespace basic_api.Controllers
             return Ok(car);
         }
     }
+    [Route("api/users/car-types")]
+    [ApiController]
+    public class UserCarTypeController(ICarTypeInterface carTypeRepo) : ControllerBase
+    {
+        private readonly ICarTypeInterface _carTypeRepo = carTypeRepo;
+
+        [HttpGet()]
+        public async Task<IActionResult> GetList()
+        {
+            var carTypes = await _carTypeRepo.GetAll();
+            return Ok(carTypes);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetDetail([FromRoute] int id)
+        {
+            var carType = await _carTypeRepo.GetCarTypeById(id);
+
+            if (carType == null) return NotFound(ErrorMessages.UserNotFound);
+
+            return Ok(carType);
+        }
+    }
+
+    [Route("api/guess/car-types")]
+    [ApiController]
+    public class GuessCarTypeController(ICarTypeInterface carTypeRepo) : ControllerBase
+    {
+        private readonly ICarTypeInterface _carTypeRepo = carTypeRepo;
+
+        [HttpGet()]
+        public async Task<IActionResult> GetList()
+        {
+            var carTypes = await _carTypeRepo.GuessGetAll();
+            return Ok(carTypes);
+        }
+    }
+}
