@@ -35,7 +35,7 @@ namespace basic_api.Controllers
         public async Task<IActionResult> Delete([FromRoute] int id)
         {
             var car = await _carRepo.Delete(id);
-            if (car == null) return NotFound(ErrorMessages.CarNotFound);
+            if (car == null) return NotFound(   .CarNotFound);
 
             if (car.IsInUse) return BadRequest(ErrorMessages.CarIsInUse);
 
