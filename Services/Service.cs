@@ -12,7 +12,9 @@ namespace basic_api.Services
         private readonly string _smtpServer = "smtp.gmail.com";
         private readonly int _smtpPort = 587;
 
-        private readonly string _subject = "Your OTP to Register";
+        private readonly string _subjectRegister = "Your OTP to Register";
+        private readonly string _subjectRemind = "Please return your rented car";
+        private readonly string _subjectContractChecking = "[Thông báo] Hợp đồng thuê xe của bạn đã được xác nhận";
 
         private readonly string? _fromEmail = Environment.GetEnvironmentVariable("EMAIL");
         private readonly string? _fromPassword = Environment.GetEnvironmentVariable("EMAIL_PASSWORD");
@@ -65,7 +67,7 @@ namespace basic_api.Services
                 await smtp.SendMailAsync(new MailMessage(
                   from: _fromEmail,
                   to: toEmail,
-                  subject: _subject,
+                  subject: _subjectRegister,
                   body: body
                 )
                 {
@@ -82,6 +84,81 @@ namespace basic_api.Services
             }
         }
 
+        public async Task SendEmailRemind(string toEmail, string name, string date)
+        {
+            if (_fromEmail == null)
+                return;
+
+            string body = File.ReadAllText("./Services/remindReturnCar.html")
+              .Replace("{{To}}", name)
+              .Replace("{{Date}}", date);
+
+
+            var smtp = new SmtpClient(_smtpServer, _smtpPort)
+            {
+                Credentials = new NetworkCredential(_fromEmail, _fromPassword),
+                EnableSsl = true,
+            };
+
+            try
+            {
+                await smtp.SendMailAsync(new MailMessage(
+                  from: _fromEmail,
+                  to: toEmail,
+                  subject: _subjectRemind,
+                  body: body
+                )
+                {
+                    IsBodyHtml = true
+                });
+            }
+            catch (SmtpException ex)
+            {
+                Console.WriteLine($"SMTP Error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+
+
+        public async Task SendEmailContract(string toEmail, string name)
+        {
+            if (_fromEmail == null)
+                return;
+
+            string body = File.ReadAllText("./Services/contractChecking.html")
+              .Replace("{{To}}", name);
+
+
+            var smtp = new SmtpClient(_smtpServer, _smtpPort)
+            {
+                Credentials = new NetworkCredential(_fromEmail, _fromPassword),
+                EnableSsl = true,
+            };
+
+            try
+            {
+                await smtp.SendMailAsync(new MailMessage(
+                  from: _fromEmail,
+                  to: toEmail,
+                  subject: _subjectContractChecking,
+                  body: body
+                )
+                {
+                    IsBodyHtml = true
+                });
+            }
+            catch (SmtpException ex)
+            {
+                Console.WriteLine($"SMTP Error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
     }
     public class Jwt
     {

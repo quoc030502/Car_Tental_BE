@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations.Schema;
 using basic_api.Constants;
 
 namespace basic_api.Models

@@ -4,14 +4,16 @@ using basic_api.Data;
 using basic_api.Dtos;
 using basic_api.Models;
 using basic_api.Middlewares;
+using basic_api.Services;
 
 namespace basic_api.Controllers
 {
     [Route("api/admins/coupons")]
     [ApiController]
-    public class AdminCouponController(ICouponInterface couponRepo) : ControllerBase
+    public class AdminCouponController(ICouponInterface couponRepo, Service service) : ControllerBase
     {
         private readonly ICouponInterface _couponRepo = couponRepo;
+        private readonly Service _service = service;
 
         [HttpGet()]
         [IsAdmin]
@@ -40,15 +42,16 @@ namespace basic_api.Controllers
         [IsAdmin]
         public async Task<IActionResult> Create([FromBody] CreateCouponRequest req)
         {
-            var car = await _couponRepo.Create(
-              new Coupon
-              {
-                  DiscountPercent = req.DiscountPercent,
-                  IsActive = true
-              }
+            var coupon = await _couponRepo.Create(
+                    new Coupon
+                    {
+                        Name = req.Name,
+                        DiscountPercent = req.DiscountPercent,
+                        IsActive = req.IsActive
+                    }
             );
 
-            return Ok(car);
+            return Ok(coupon);
         }
     }
 

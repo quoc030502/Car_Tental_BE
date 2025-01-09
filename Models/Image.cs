@@ -11,6 +11,9 @@ namespace basic_api.Models
         [Column("image_url")]
         public string ImageURL { get; set; } = string.Empty;
 
+        [Column("type")]
+        public required string Type { get; set; } = string.Empty;
+
         [ForeignKey("images_orders")]
         [Column("order_id")]
         public int? OrderID { get; set; }

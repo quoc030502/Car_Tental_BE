@@ -9,23 +9,24 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       DB_CONNECTION_STRING: ${DB_CONNECTION_STRING}
+    depends_on:
+      mssql:
+        condition: service_started
     ports:
       - "3000:80"
     networks:
       - back-tier
 
-  postgres_db:
-    image: postgres:14.1-alpine
-    container_name: postgresDB
-    restart: always
+  mssql:
+    image: mcr.microsoft.com/azure-sql-edge
+    container_name: SqlServerDatabase
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Password123
     ports:
-      - "5432:5432"
+      - 1433:1433
     volumes:
-      - db:/var/lib/postgresql/data
+      - sql_data:/var/opt/mssql
     networks:
       - back-tier
 
@@ -33,5 +34,5 @@ networks:
   back-tier:
 
 volumes:
-  db:
+  sql_data:
     driver: local

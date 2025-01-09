@@ -21,6 +21,7 @@ namespace basic_api.Repository
         public async Task<List<GetListCarResponse>> GetAll()
         {
             var carsWithType = await _context.Cars
+              .Where(c => c.DeletedAt == null)
               .Select(c => new GetListCarResponse
               {
                   Id = c.Id,
@@ -50,22 +51,22 @@ namespace basic_api.Repository
 
         public async Task<Car?> GetCarById(int? id)
         {
-            return await _context.Cars.Include(car => car.CarType)
+            return await _context.Cars.Where(c => c.DeletedAt == null).Include(car => car.CarType)
               .Include(car => car.CarBrand).FirstOrDefaultAsync(car => car.Id == id);
         }
 
 
         public async Task<Car?> Delete(int id)
         {
-            var Car = await _context.Cars.FindAsync(id);
+            var car = await _context.Cars.FindAsync(id);
 
-            if (Car == null) return null;
+            if (car == null) return null;
 
-            _context.Cars.Remove(Car);
+            car.DeletedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
 
-            return Car;
+            return car;
         }
 
         public async Task<Car?> Update(Car car)
@@ -77,7 +78,7 @@ namespace basic_api.Repository
 
         public async Task<List<UserGetListCarResponse>> UserGetAll(UserGetListCarRequest req)
         {
-            var db = _context.Cars.AsQueryable();
+            var db = _context.Cars.Where(c => c.DeletedAt == null).AsQueryable();
 
             if (req.CarType != null)
                 db = db.Where(c => c.CarType.Type == req.CarType);
@@ -120,7 +121,7 @@ namespace basic_api.Repository
 
         public async Task<List<GuessGetListCarResponse>> GuessGetAll(GuessGetListCarRequest req)
         {
-            var db = _context.Cars.AsQueryable();
+            var db = _context.Cars.Where(c => c.DeletedAt == null).AsQueryable();
 
             if (req.CarType != null)
                 db = db.Where(c => c.CarType.Type == req.CarType);
